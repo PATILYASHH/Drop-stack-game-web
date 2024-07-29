@@ -85,18 +85,61 @@ function animate() {
         stackBodies[index].quaternion.setFromEuler(0, piece.rotation.y, 0);
     });
 
-    // Render scene
-    renderer.render(scene, camera);
-
     // Check for collisions
     checkCollision();
+
+    // Render scene
+    renderer.render(scene, camera);
 }
 
 function checkCollision() {
+    // Check if ball falls below the bottom of the stack
     if (ball.position.y < -5) {
         alert(`Game Over! Your score: ${score}`);
         resetGame();
+        return;
     }
+
+    // Check for collision with stack pieces
+    stack.forEach((piece, index) => {
+        const stackPiece = stackBodies[index];
+        const ballBox = new THREE.Box3().setFromObject(ball);
+        const stackBox = new THREE.Box3().setFromObject(piece);
+
+        if (ballBox.intersectsBox(stackBox)) {
+            // Break the stack segment
+            scene.remove(piece);
+            world.remove(stackBodies[index]);
+            stack.splice(index, 1);
+            stackBodies.splice(index, 1);
+
+            // Update score and game difficulty
+            score++;
+            if (score % 5 === 0) {
+                ballSpeed += 0.01;
+                stackSpeed += 0.001;
+            }
+
+            // Add new stack segment
+            const height = 0.5;
+            const radiusTop = 3;
+            const radiusBottom = 3;
+
+            const newStackGeometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 32);
+            const newStackMaterial = new THREE.MeshStandardMaterial({ color: (score % 2 === 0) ? 0xff0000 : 0x0000ff });
+            const newStackPiece = new THREE.Mesh(newStackGeometry, newStackMaterial);
+            newStackPiece.position.set(0, 4.5, 0);
+            stack.push(newStackPiece);
+            scene.add(newStackPiece);
+
+            const newStackShape = new CANNON.Cylinder(radiusTop, radiusBottom, height, 32);
+            const newStackBody = new CANNON.Body({ mass: 0 });
+            newStackBody.addShape(newStackShape);
+            newStackBody.position.set(0, 4.5, 0);
+            stackBodies.push(newStackBody);
+            world.addBody(newStackBody);
+        }
+    });
 }
 
 function resetGame() {
